@@ -5,99 +5,78 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-        :root { --accent: #ffffff; --bg: #000000; --card: #111; }
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: white; margin: 0; padding: 0; overflow: hidden; touch-action: none; }
-        
-        .app-container { display: flex; flex-direction: column; height: 100vh; padding: 15px; box-sizing: border-box; }
-        
-        /* СТУДІЯ МЕРЧУ */
+        body { font-family: sans-serif; background: #000; color: #fff; margin: 0; padding: 10px; overflow: hidden; touch-action: none; }
         .stage { 
             position: relative; width: 100%; aspect-ratio: 1/1; 
-            background: #1a1a1a; border-radius: 24px; overflow: hidden;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5); border: 1px solid #222;
+            background: #1a1a1a; border-radius: 20px; overflow: hidden; border: 1px solid #333;
         }
-
-        /* МАГІЧНЕ ФАРБУВАННЯ (Тільки контур одягу) */
-        .garment-layer {
+        /* Колір тільки по контуру худі */
+        .color-layer {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: white; /* Дефолтний колір */
+            background: #fff; z-index: 1; transition: 0.3s;
             -webkit-mask-size: contain; -webkit-mask-repeat: no-repeat; -webkit-mask-position: center;
-            z-index: 1; transition: 0.3s;
         }
-
-        .shadow-overlay {
+        .shadow-layer {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             object-fit: contain; mix-blend-mode: multiply; z-index: 2; pointer-events: none;
         }
-
-        /* ПРИНТИ */
         .print-obj {
-            position: absolute; z-index: 5; cursor: move; touch-action: none;
-            display: none; border: 1px dashed rgba(255,255,255,0.3);
+            position: absolute; z-index: 5; cursor: move; touch-action: none; display: none;
         }
-        .print-obj.active { border: 1px solid var(--accent); }
-
-        /* ІНТЕРФЕЙС */
-        .controls { margin-top: 15px; display: flex; flex-direction: column; gap: 10px; }
-        .row { display: flex; gap: 10px; }
-        select, .btn { 
-            background: #1a1a1a; color: white; border: 1px solid #333; 
-            padding: 12px; border-radius: 12px; font-size: 14px; width: 100%; 
-        }
-        .file-input-label { 
-            background: #222; border: 1px dashed #444; border-radius: 12px;
-            padding: 10px; font-size: 11px; text-align: center; flex: 1;
-        }
-        .btn-buy { background: var(--accent); color: black; font-weight: 800; text-transform: uppercase; margin-top: 5px; border: none; }
+        .print-obj.active { outline: 1px solid #fff; }
         
-        /* ПОВЗУНОК РОЗМІРУ (Показується тільки при виборі принту) */
-        .size-slider-box { padding: 5px 0; display: none; }
-        input[type=range] { width: 100%; accent-color: white; }
+        .controls { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+        .row { display: flex; gap: 8px; }
+        select, button { 
+            background: #111; color: #fff; border: 1px solid #333; 
+            padding: 12px; border-radius: 10px; width: 100%; font-size: 14px;
+        }
+        .btn-buy { background: #fff; color: #000; font-weight: bold; border: none; }
+        input[type=range] { width: 100%; accent-color: #fff; }
     </style>
 </head>
 <body>
 
-<div class="app-container">
-    <div class="stage" id="main-stage">
-        <div id="color-layer" class="garment-layer" style="-webkit-mask-image: url('https://raw.githubusercontent.com/EngineApparel/engine.apparel.web/main/hoodie_full.png');"></div>
-        <img id="base-img" class="shadow-overlay" src="https://raw.githubusercontent.com/EngineApparel/engine.apparel.web/main/hoodie_full.png">
-        
-        <img id="front-img" class="print-obj" src="" style="width: 80px; top: 30%; left: 20%;">
-        <img id="back-img" class="print-obj" src="" style="width: 80px; top: 30%; left: 60%;">
-    </div>
+<div class="stage" id="stage">
+    <div id="color-layer" class="color-layer" style="-webkit-mask-image: url('https://raw.githubusercontent.com/EngineApparel/engine.apparel.web/main/hoodie_full.png');"></div>
+    <img id="base-img" class="shadow-layer" src="https://raw.githubusercontent.com/EngineApparel/engine.apparel.web/main/hoodie_full.png">
+    
+    <img id="front-img" class="print-obj" src="" style="width: 80px; top: 30%; left: 20%;">
+    <img id="back-img" class="print-obj" src="" style="width: 80px; top: 30%; left: 60%;">
+</div>
 
-    <div class="controls">
-        <div class="row">
-            <select id="type-sel" onchange="changeType()">
-                <option value="hoodie_full.png">Худі</option>
-                <option value="zip_full.png">Зіп-худі</option>
-                <option value="tshirt_full.png">Футболка</option>
-            </select>
-            <select id="color-sel" onchange="changeColor()">
-                <option value="#ffffff">Білий</option>
-                <option value="#000000">Чорний</option>
-                <option value="#555555">Сірий</option>
-                <option value="#4b5320">Хакі</option>
-                <option value="#7b1113">Бордо</option>
-            </select>
-        </div>
-
-        <div id="size-ctrl" class="size-slider-box">
-            <label style="font-size: 10px; color: #888;">РОЗМІР ПРИНТА:</label>
-            <input type="range" min="30" max="200" value="80" oninput="resizePrint(this.value)">
-        </div>
-
-        <div class="row">
-            <label class="file-input-label">ПЕРЕД<input type="file" hidden onchange="upload(event, 'front-img')"></label>
-            <label class="file-input-label">СПИНА<input type="file" hidden onchange="upload(event, 'back-img')"></label>
-        </div>
-
-        <select id="garment-size">
-            <option>Розмір: S</option><option>M</option><option>L</option><option>XL</option>
+<div class="controls">
+    <div class="row">
+        <select id="type-sel" onchange="updateBase()">
+            <option value="hoodie_full.png">Худі</option>
+            <option value="zip_full.png">Зіп-худі</option>
+            <option value="tshirt_full.png">Футболка</option>
         </select>
-
-        <button class="btn btn-buy" onclick="sendToBot()">Додати у кошик</button>
+        <select id="color-sel" onchange="updateColor()">
+            <option value="#ffffff">Білий</option>
+            <option value="#000000">Чорний</option>
+            <option value="#4b5320">Хакі</option>
+            <option value="#7b1113">Бордо</option>
+        </select>
     </div>
+
+    <div id="zoom-box" style="display:none">
+        <label style="font-size: 10px; color:#888">МАСШТАБ ПРИНТА:</label>
+        <input type="range" min="30" max="200" value="80" oninput="resize(this.value)">
+    </div>
+
+    <div class="row">
+        <button onclick="document.getElementById('f-up').click()">+ ПЕРЕД</button>
+        <button onclick="document.getElementById('b-up').click()">+ СПИНА</button>
+        <input type="file" id="f-up" hidden onchange="upload(event, 'front-img')">
+        <input type="file" id="b-up" hidden onchange="upload(event, 'back-img')">
+    </div>
+
+    <select id="size-sel">
+        <option>S</option><option selected>M</option><option>L</option><option>XL</option>
+    </select>
+
+    <button class="btn-buy" onclick="sendData()">ДОДАТИ В КОШИК 🛒</button>
 </div>
 
 <script>
@@ -105,15 +84,14 @@
     tg.expand();
     let activeId = null;
 
-    // Зміна типу виробу (Маска + Тіні)
-    function changeType() {
-        let img = document.getElementById('type-sel').value;
-        let url = "https://raw.githubusercontent.com/EngineApparel/engine.apparel.web/main/" + img;
+    function updateBase() {
+        let file = document.getElementById('type-sel').value;
+        let url = "https://raw.githubusercontent.com/EngineApparel/engine.apparel.web/main/" + file;
         document.getElementById('color-layer').style.webkitMaskImage = `url('${url}')`;
         document.getElementById('base-img').src = url;
     }
 
-    function changeColor() {
+    function updateColor() {
         document.getElementById('color-layer').style.backgroundColor = document.getElementById('color-sel').value;
     }
 
@@ -121,34 +99,23 @@
         let reader = new FileReader();
         reader.onload = () => {
             let el = document.getElementById(id);
-            el.src = reader.result;
-            el.style.display = 'block';
-            selectPrint(id);
+            el.src = reader.result; el.style.display = 'block';
+            activeId = id;
+            document.getElementById('zoom-box').style.display = 'block';
         };
         reader.readAsDataURL(e.target.files[0]);
     }
 
-    function selectPrint(id) {
-        activeId = id;
-        document.querySelectorAll('.print-obj').forEach(p => p.classList.remove('active'));
-        document.getElementById(id).classList.add('active');
-        document.getElementById('size-ctrl').style.display = 'block';
-    }
+    function resize(v) { if(activeId) document.getElementById(activeId).style.width = v + 'px'; }
 
-    function resizePrint(v) {
-        if(activeId) document.getElementById(activeId).style.width = v + 'px';
-    }
-
-    // ЛОГІКА ПЕРЕТЯГУВАННЯ (DRAG)
+    // DRAG LOGIC
     function initDrag(el) {
         let x = 0, y = 0, startX = 0, startY = 0;
-        
         el.addEventListener('touchstart', (e) => {
-            selectPrint(el.id);
+            activeId = el.id;
             startX = e.touches[0].clientX - x;
             startY = e.touches[0].clientY - y;
         });
-
         el.addEventListener('touchmove', (e) => {
             e.preventDefault();
             x = e.touches[0].clientX - startX;
@@ -156,15 +123,14 @@
             el.style.transform = `translate(${x}px, ${y}px)`;
         });
     }
-
     initDrag(document.getElementById('front-img'));
     initDrag(document.getElementById('back-img'));
 
-    function sendToBot() {
+    function sendData() {
         let data = {
             type: document.getElementById('type-sel').selectedOptions[0].text,
             color: document.getElementById('color-sel').selectedOptions[0].text,
-            size: document.getElementById('garment-size').value,
+            size: document.getElementById('size-sel').value,
             front: document.getElementById('front-img').src.length > 100,
             back: document.getElementById('back-img').src.length > 100
         };
@@ -172,6 +138,5 @@
         tg.close();
     }
 </script>
-
 </body>
 </html>
