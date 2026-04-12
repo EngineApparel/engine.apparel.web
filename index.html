@@ -4,50 +4,110 @@
     <meta charset="UTF-8">
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-        body { font-family: 'Segoe UI', sans-serif; background: #0f0f0f; color: white; text-align: center; padding: 20px; }
-        .card { background: #1a1a1a; border-radius: 15px; padding: 20px; border: 1px solid #333; }
-        select, button { width: 100%; padding: 12px; margin: 10px 0; border-radius: 8px; border: none; font-size: 16px; }
-        button { background: #ffffff; color: #000; font-weight: bold; cursor: pointer; transition: 0.3s; }
-        button:hover { background: #cccccc; }
-        .preview { font-size: 50px; margin: 20px 0; }
+        body { font-family: 'Segoe UI', sans-serif; background: #0f0f0f; color: white; text-align: center; padding: 15px; margin: 0; }
+        .card { background: #1a1a1a; border-radius: 15px; padding: 15px; border: 1px solid #333; }
+        
+        /* Сцена для подвійного мокапа */
+        .stage { 
+            position: relative; 
+            width: 100%; 
+            max-width: 350px; 
+            aspect-ratio: 16/9; /* Співвідношення для фото "перед+зад" */
+            margin: 15px auto; 
+            background-color: #ffffff; 
+            border-radius: 8px;
+            overflow: hidden;
+            transition: 0.3s;
+        }
+        
+        .base-img {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            object-fit: contain;
+            mix-blend-mode: multiply;
+            z-index: 10;
+            pointer-events: none;
+        }
+
+        /* Зони принтів */
+        .print { position: absolute; z-index: 5; transform: translate(-50%, -50%); max-width: 20%; max-height: 30%; display: none; }
+        #print-front { top: 45%; left: 25%; } /* Ліва частина фото (Перед) */
+        #print-back { top: 45%; left: 75%; }  /* Права частина фото (Зад) */
+
+        select, button, input { width: 100%; padding: 10px; margin: 8px 0; border-radius: 6px; border: none; font-size: 14px; box-sizing: border-box; }
+        button { background: #ffffff; color: #000; font-weight: bold; cursor: pointer; }
+        .upload-label { display: block; background: #333; padding: 8px; border: 1px dashed #555; font-size: 12px; margin-top: 5px; cursor: pointer; }
+        h3 { margin: 10px 0 5px 0; font-size: 16px; color: #aaa; }
     </style>
 </head>
 <body>
     <div class="card">
-        <h2>ENGINE CONSTRUCT 🏁</h2>
-        <div class="preview">👕</div>
+        <h2 style="margin-top:0">ENGINE STUDIO 🏁</h2>
         
-        <label>Колір тканини:</label>
-        <select id="color">
-            <option value="Jet Black">Jet Black (Чорний)</option>
-            <option value="Snow White">Snow White (Білий)</option>
-            <option value="Ash Grey">Ash Grey (Сірий)</option>
+        <div class="stage" id="stage">
+            <img id="base-apparel" src="hoodie_full.png" class="base-img">
+            <img id="print-front" class="print" src="">
+            <img id="print-back" class="print" src="">
+        </div>
+        
+        <h3>1. Оберіть основу та колір</h3>
+        <select id="item-type" onchange="updateBase()">
+            <option value="hoodie_full.png">Худі</option>
+            <option value="zip_full.png">Зіп-худі</option>
+            <option value="tshirt_full.png">Футболка</option>
         </select>
 
-        <label>Розмір:</label>
+        <select id="color" onchange="updateColor()">
+            <option value="#ffffff">White (Білий)</option>
+            <option value="#1a1a1a">Black (Чорний)</option>
+            <option value="#808080">Grey (Сірий)</option>
+            <option value="#4b5320">Army (Хакі)</option>
+        </select>
+
+        <h3>2. Завантажте принти</h3>
+        <label class="upload-label">Перед: <input type="file" accept="image/*" onchange="loadImg(event, 'print-front')"></label>
+        <label class="upload-label">Спина: <input type="file" accept="image/*" onchange="loadImg(event, 'print-back')"></label>
+
+        <h3>3. Розмір</h3>
         <select id="size">
-            <option value="S">S</option>
-            <option value="M">M</option>
-            <option value="L">L</option>
-            <option value="XL">XL</option>
-            <option value="XXL">XXL</option>
+            <option value="S">S</option><option value="M">M</option><option value="L">L</option><option value="XL">XL</option>
         </select>
 
-        <button id="main_button">ДОДАТИ В КОШИК</button>
+        <button id="save_btn">ЗБЕРЕГТИ ЗАМОВЛЕННЯ</button>
     </div>
 
     <script>
         let tg = window.Telegram.WebApp;
         tg.expand();
 
-        document.getElementById('main_button').onclick = function() {
-            let color = document.getElementById('color').value;
-            let size = document.getElementById('size').value;
+        function updateBase() {
+            document.getElementById('base-apparel').src = document.getElementById('item-type').value;
+        }
+
+        function updateColor() {
+            document.getElementById('stage').style.backgroundColor = document.getElementById('color').value;
+        }
+
+        function loadImg(event, targetId) {
+            let reader = new FileReader();
+            reader.onload = function(){
+                let img = document.getElementById(targetId);
+                img.src = reader.result;
+                img.style.display = 'block';
+            };
+            reader.readAsDataURL(event.target.files[0]);
+        }
+
+        document.getElementById('save_btn').onclick = function() {
+            let item = document.getElementById('item-type');
+            let color = document.getElementById('color');
             
             let data = {
-                item: "Худі Custom",
-                color: color,
-                size: size
+                type: item.options[item.selectedIndex].text,
+                color: color.options[color.selectedIndex].text,
+                size: document.getElementById('size').value,
+                front: document.getElementById('print-front').src !== "",
+                back: document.getElementById('print-back').src !== ""
             };
 
             tg.sendData(JSON.stringify(data));
