@@ -4,85 +4,68 @@
     <meta charset="UTF-8">
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-        body { font-family: 'Segoe UI', sans-serif; background: #0f0f0f; color: white; text-align: center; padding: 10px; margin: 0; }
-        .card { background: #1a1a1a; border-radius: 15px; padding: 15px; border: 1px solid #333; }
+        body { font-family: 'Segoe UI', sans-serif; background: #0b0b0b; color: white; text-align: center; padding: 10px; margin: 0; }
+        .card { background: #161616; border-radius: 15px; padding: 15px; border: 1px solid #333; }
         
-        /* Сцена мокапа */
+        /* Сцена мокапа з фіксованим фоном */
         .stage { 
             position: relative; 
             width: 100%; 
             max-width: 350px; 
             aspect-ratio: 16/9; 
             margin: 10px auto; 
-            background-color: #333; /* ФІКСОВАНИЙ ФОН СЦЕНИ */
-            border-radius: 8px;
+            background-color: #222; /* ЦЕЙ ФОН НЕ ЗМІНЮЄТЬСЯ */
+            border-radius: 12px;
             overflow: hidden;
-            border: 2px solid #444;
+            border: 1px solid #444;
         }
         
-        /* Шар кольору одягу */
-        #color-layer {
+        /* Шар, який фарбує одяг */
+        #garment-color-fill {
             position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
+            top: 10%; left: 10%; width: 80%; height: 80%;
             background-color: #ffffff;
+            filter: blur(20px); /* М'яке заповнення кольором під одягом */
             z-index: 1;
+            transition: 0.3s;
         }
 
         .base-img {
             position: absolute;
             top: 0; left: 0; width: 100%; height: 100%;
             object-fit: contain;
-            mix-blend-mode: multiply;
+            mix-blend-mode: multiply; /* Накладає тіні на колір */
             z-index: 10;
             pointer-events: none;
         }
 
-        /* Контейнери для принтів */
-        .print-container {
-            position: absolute;
-            z-index: 5;
-            display: none;
-            pointer-events: none;
-            width: 100%; height: 100%;
-            top: 0; left: 0;
-        }
-
         .user-print {
             position: absolute;
-            max-width: 100%;
-            max-height: 100%;
+            z-index: 5;
             transform: translate(-50%, -50%);
+            pointer-events: none;
+            display: none;
         }
 
-        /* Налаштування (повзунки) */
-        .controls-group {
-            background: #252525;
-            padding: 10px;
-            border-radius: 8px;
-            margin: 10px 0;
-            text-align: left;
-        }
-        .controls-group label { font-size: 12px; color: #aaa; display: block; margin-bottom: 5px; }
+        /* Елементи керування */
+        .control-panel { background: #202020; padding: 10px; border-radius: 10px; margin: 10px 0; text-align: left; border: 1px solid #333; }
+        .control-panel label { font-size: 11px; color: #888; display: block; margin-bottom: 2px; }
         
-        input[type="range"] { width: 100%; margin-bottom: 10px; accent-color: #fff; }
-        select, button { width: 100%; padding: 10px; margin: 5px 0; border-radius: 6px; border: none; font-size: 14px; }
-        button { background: #ffffff; color: #000; font-weight: bold; cursor: pointer; }
-        .upload-btn { background: #333; color: white; border: 1px dashed #555; cursor: pointer; padding: 8px; font-size: 12px; }
+        input[type="range"] { width: 100%; margin-bottom: 8px; accent-color: #fff; }
+        select, button { width: 100%; padding: 12px; margin: 5px 0; border-radius: 8px; border: none; font-size: 14px; background: #333; color: white; }
+        button#save_btn { background: #ffffff; color: #000; font-weight: bold; margin-top: 15px; }
+        .file-input { background: #2a2a2a; border: 1px dashed #555; padding: 10px; font-size: 12px; cursor: pointer; width: 100%; box-sizing: border-box; }
     </style>
 </head>
 <body>
     <div class="card">
-        <h2 style="margin:0 0 10px 0">ENGINE STUDIO 🏁</h2>
+        <h2 style="margin: 0 0 10px 0;">ENGINE STUDIO 🏁</h2>
         
         <div class="stage" id="stage">
-            <div id="color-layer"></div> <img id="base-apparel" src="https://raw.githubusercontent.com/EngineApparel/engine.apparel.web/main/hoodie_full.png" class="base-img">
-            
-            <div id="cont-front" class="print-container">
-                <img id="print-front" class="user-print" src="">
-            </div>
-            <div id="cont-back" class="print-container">
-                <img id="print-back" class="user-print" src="">
-            </div>
+            <div id="garment-color-fill"></div>
+            <img id="base-apparel" src="hoodie_full.png" class="base-img">
+            <img id="print-front" class="user-print" src="">
+            <img id="print-back" class="user-print" src="">
         </div>
         
         <select id="item-type" onchange="updateBase()">
@@ -91,104 +74,88 @@
             <option value="tshirt_full.png">Футболка</option>
         </select>
 
-        <select id="color" onchange="updateColor()">
-            <option value="#ffffff">White (Білий)</option>
-            <option value="#1a1a1a">Black (Чорний)</option>
-            <option value="#808080">Grey (Сірий)</option>
-            <option value="#4b5320">Army (Хакі)</option>
-            <option value="#7b1113">Dark Red (Бордо)</option>
+        <select id="color-select" onchange="updateColor()">
+            <option value="#ffffff">Колір: Білий</option>
+            <option value="#1a1a1a">Колір: Чорний</option>
+            <option value="#808080">Колір: Сірий</option>
+            <option value="#4b5320">Колір: Хакі</option>
+            <option value="#7b1113">Колір: Бордо</option>
         </select>
 
-        <div class="controls-group">
-            <label>🖼 ПРИНТ ПЕРЕД</label>
-            <input type="file" class="upload-btn" accept="image/*" onchange="loadImg(event, 'print-front', 'cont-front')">
+        <div class="control-panel">
+            <label>🖼 ПРИНТ: ПЕРЕД</label>
+            <input type="file" class="file-input" accept="image/*" onchange="loadImg(event, 'print-front')">
             <label>Розмір:</label>
-            <input type="range" min="10" max="150" value="50" oninput="transform('print-front', 'scale', this.value)">
-            <label>Позиція X (Вліво/Вправо):</label>
-            <input type="range" min="5" max="45" value="25" oninput="transform('print-front', 'left', this.value)">
-            <label>Позиція Y (Вгору/Вниз):</label>
-            <input type="range" min="10" max="80" value="45" oninput="transform('print-front', 'top', this.value)">
+            <input type="range" min="20" max="150" value="60" oninput="move('print-front', 'width', this.value + 'px')">
+            <label>Вгору / Вниз:</label>
+            <input type="range" min="10" max="80" value="45" oninput="move('print-front', 'top', this.value + '%')">
+            <label>Вліво / Вправо:</label>
+            <input type="range" min="5" max="45" value="25" oninput="move('print-front', 'left', this.value + '%')">
         </div>
 
-        <div class="controls-group">
-            <label>🖼 ПРИНТ СПИНА</label>
-            <input type="file" class="upload-btn" accept="image/*" onchange="loadImg(event, 'print-back', 'cont-back')">
+        <div class="control-panel">
+            <label>🖼 ПРИНТ: СПИНА</label>
+            <input type="file" class="file-input" accept="image/*" onchange="loadImg(event, 'print-back')">
             <label>Розмір:</label>
-            <input type="range" min="10" max="150" value="50" oninput="transform('print-back', 'scale', this.value)">
-            <label>Позиція X:</label>
-            <input type="range" min="55" max="95" value="75" oninput="transform('print-back', 'left', this.value)">
-            <label>Позиція Y:</label>
-            <input type="range" min="10" max="80" value="45" oninput="transform('print-back', 'top', this.value)">
+            <input type="range" min="20" max="150" value="60" oninput="move('print-back', 'width', this.value + 'px')">
+            <label>Вгору / Вниз:</label>
+            <input type="range" min="10" max="80" value="45" oninput="move('print-back', 'top', this.value + '%')">
+            <label>Вліво / Вправо:</label>
+            <input type="range" min="55" max="95" value="75" oninput="move('print-back', 'left', this.value + '%')">
         </div>
 
-        <select id="size">
+        <select id="size-select">
             <option value="S">Розмір: S</option><option value="M">M</option><option value="L">L</option><option value="XL">XL</option>
         </select>
 
-        <button id="save_btn">В КОШИК 🛒</button>
+        <button id="save_btn">ДОДАТИ В КОШИК 🛒</button>
     </div>
 
     <script>
         let tg = window.Telegram.WebApp;
         tg.expand();
 
-        // Об'єкт для збереження налаштувань трансформації
-        let transforms = {
-            'print-front': { scale: 50, left: 25, top: 45 },
-            'print-back': { scale: 50, left: 75, top: 45 }
-        };
-
         function updateBase() {
-            let val = document.getElementById('item-type').value;
-            document.getElementById('base-apparel').src = "https://raw.githubusercontent.com/EngineApparel/engine.apparel.web/main/" + val;
+            let file = document.getElementById('item-type').value;
+            document.getElementById('base-apparel').src = file;
         }
 
         function updateColor() {
-            document.getElementById('color-layer').style.backgroundColor = document.getElementById('color').value;
+            let color = document.getElementById('color-select').value;
+            document.getElementById('garment-color-fill').style.backgroundColor = color;
         }
 
-        function loadImg(event, imgId, contId) {
+        function loadImg(event, id) {
             let reader = new FileReader();
             reader.onload = function(){
-                let img = document.getElementById(imgId);
+                let img = document.getElementById(id);
                 img.src = reader.result;
-                document.getElementById(contId).style.display = 'block';
-                applyTransform(imgId);
+                img.style.display = 'block';
             };
             reader.readAsDataURL(event.target.files[0]);
         }
 
-        function transform(id, type, val) {
-            transforms[id][type] = val;
-            applyTransform(id);
-        }
-
-        function applyTransform(id) {
-            let img = document.getElementById(id);
-            let t = transforms[id];
-            img.style.width = t.scale + "px";
-            img.style.left = t.left + "%";
-            img.style.top = t.top + "%";
+        function move(id, prop, val) {
+            document.getElementById(id).style[prop] = val;
         }
 
         document.getElementById('save_btn').onclick = function() {
             let item = document.getElementById('item-type');
-            let color = document.getElementById('color');
+            let color = document.getElementById('color-select');
             
             let data = {
                 type: item.options[item.selectedIndex].text,
                 color: color.options[color.selectedIndex].text,
-                size: document.getElementById('size').value,
-                front: document.getElementById('print-front').src !== "",
-                back: document.getElementById('print-back').src !== ""
+                size: document.getElementById('size-select').value,
+                front: document.getElementById('print-front').src.length > 100,
+                back: document.getElementById('print-back').src.length > 100
             };
 
             tg.sendData(JSON.stringify(data));
             tg.close();
         };
 
-        // Ініціалізація стартових значень
-        updateColor();
+        updateColor(); // Початковий колір
     </script>
 </body>
 </html>
