@@ -1,1 +1,58 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #0f0f0f; color: white; text-align: center; padding: 20px; }
+        .card { background: #1a1a1a; border-radius: 15px; padding: 20px; border: 1px solid #333; }
+        select, button { width: 100%; padding: 12px; margin: 10px 0; border-radius: 8px; border: none; font-size: 16px; }
+        button { background: #ffffff; color: #000; font-weight: bold; cursor: pointer; transition: 0.3s; }
+        button:hover { background: #cccccc; }
+        .preview { font-size: 50px; margin: 20px 0; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h2>ENGINE CONSTRUCT 🏁</h2>
+        <div class="preview">👕</div>
+        
+        <label>Колір тканини:</label>
+        <select id="color">
+            <option value="Jet Black">Jet Black (Чорний)</option>
+            <option value="Snow White">Snow White (Білий)</option>
+            <option value="Ash Grey">Ash Grey (Сірий)</option>
+        </select>
 
+        <label>Розмір:</label>
+        <select id="size">
+            <option value="S">S</option>
+            <option value="M">M</option>
+            <option value="L">L</option>
+            <option value="XL">XL</option>
+            <option value="XXL">XXL</option>
+        </select>
+
+        <button id="main_button">ДОДАТИ В КОШИК</button>
+    </div>
+
+    <script>
+        let tg = window.Telegram.WebApp;
+        tg.expand();
+
+        document.getElementById('main_button').onclick = function() {
+            let color = document.getElementById('color').value;
+            let size = document.getElementById('size').value;
+            
+            let data = {
+                item: "Худі Custom",
+                color: color,
+                size: size
+            };
+
+            tg.sendData(JSON.stringify(data));
+            tg.close();
+        };
+    </script>
+</body>
+</html>
