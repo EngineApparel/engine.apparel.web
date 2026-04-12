@@ -4,22 +4,30 @@
     <meta charset="UTF-8">
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-        body { font-family: 'Segoe UI', sans-serif; background: #0f0f0f; color: white; text-align: center; padding: 15px; margin: 0; }
+        body { font-family: 'Segoe UI', sans-serif; background: #0f0f0f; color: white; text-align: center; padding: 10px; margin: 0; }
         .card { background: #1a1a1a; border-radius: 15px; padding: 15px; border: 1px solid #333; }
         
-        /* Сцена для подвійного мокапа */
+        /* Сцена мокапа */
         .stage { 
             position: relative; 
             width: 100%; 
             max-width: 350px; 
-            aspect-ratio: 16/9; /* Співвідношення для фото "перед+зад" */
-            margin: 15px auto; 
-            background-color: #ffffff; 
+            aspect-ratio: 16/9; 
+            margin: 10px auto; 
+            background-color: #333; /* ФІКСОВАНИЙ ФОН СЦЕНИ */
             border-radius: 8px;
             overflow: hidden;
-            transition: 0.3s;
+            border: 2px solid #444;
         }
         
+        /* Шар кольору одягу */
+        #color-layer {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background-color: #ffffff;
+            z-index: 1;
+        }
+
         .base-img {
             position: absolute;
             top: 0; left: 0; width: 100%; height: 100%;
@@ -29,28 +37,54 @@
             pointer-events: none;
         }
 
-        /* Зони принтів */
-        .print { position: absolute; z-index: 5; transform: translate(-50%, -50%); max-width: 20%; max-height: 30%; display: none; }
-        #print-front { top: 45%; left: 25%; } /* Ліва частина фото (Перед) */
-        #print-back { top: 45%; left: 75%; }  /* Права частина фото (Зад) */
+        /* Контейнери для принтів */
+        .print-container {
+            position: absolute;
+            z-index: 5;
+            display: none;
+            pointer-events: none;
+            width: 100%; height: 100%;
+            top: 0; left: 0;
+        }
 
-        select, button, input { width: 100%; padding: 10px; margin: 8px 0; border-radius: 6px; border: none; font-size: 14px; box-sizing: border-box; }
+        .user-print {
+            position: absolute;
+            max-width: 100%;
+            max-height: 100%;
+            transform: translate(-50%, -50%);
+        }
+
+        /* Налаштування (повзунки) */
+        .controls-group {
+            background: #252525;
+            padding: 10px;
+            border-radius: 8px;
+            margin: 10px 0;
+            text-align: left;
+        }
+        .controls-group label { font-size: 12px; color: #aaa; display: block; margin-bottom: 5px; }
+        
+        input[type="range"] { width: 100%; margin-bottom: 10px; accent-color: #fff; }
+        select, button { width: 100%; padding: 10px; margin: 5px 0; border-radius: 6px; border: none; font-size: 14px; }
         button { background: #ffffff; color: #000; font-weight: bold; cursor: pointer; }
-        .upload-label { display: block; background: #333; padding: 8px; border: 1px dashed #555; font-size: 12px; margin-top: 5px; cursor: pointer; }
-        h3 { margin: 10px 0 5px 0; font-size: 16px; color: #aaa; }
+        .upload-btn { background: #333; color: white; border: 1px dashed #555; cursor: pointer; padding: 8px; font-size: 12px; }
     </style>
 </head>
 <body>
     <div class="card">
-        <h2 style="margin-top:0">ENGINE STUDIO 🏁</h2>
+        <h2 style="margin:0 0 10px 0">ENGINE STUDIO 🏁</h2>
         
         <div class="stage" id="stage">
-            <img id="base-apparel" src="hoodie_full.png" class="base-img">
-            <img id="print-front" class="print" src="">
-            <img id="print-back" class="print" src="">
+            <div id="color-layer"></div> <img id="base-apparel" src="https://raw.githubusercontent.com/EngineApparel/engine.apparel.web/main/hoodie_full.png" class="base-img">
+            
+            <div id="cont-front" class="print-container">
+                <img id="print-front" class="user-print" src="">
+            </div>
+            <div id="cont-back" class="print-container">
+                <img id="print-back" class="user-print" src="">
+            </div>
         </div>
         
-        <h3>1. Оберіть основу та колір</h3>
         <select id="item-type" onchange="updateBase()">
             <option value="hoodie_full.png">Худі</option>
             <option value="zip_full.png">Зіп-худі</option>
@@ -62,40 +96,79 @@
             <option value="#1a1a1a">Black (Чорний)</option>
             <option value="#808080">Grey (Сірий)</option>
             <option value="#4b5320">Army (Хакі)</option>
+            <option value="#7b1113">Dark Red (Бордо)</option>
         </select>
 
-        <h3>2. Завантажте принти</h3>
-        <label class="upload-label">Перед: <input type="file" accept="image/*" onchange="loadImg(event, 'print-front')"></label>
-        <label class="upload-label">Спина: <input type="file" accept="image/*" onchange="loadImg(event, 'print-back')"></label>
+        <div class="controls-group">
+            <label>🖼 ПРИНТ ПЕРЕД</label>
+            <input type="file" class="upload-btn" accept="image/*" onchange="loadImg(event, 'print-front', 'cont-front')">
+            <label>Розмір:</label>
+            <input type="range" min="10" max="150" value="50" oninput="transform('print-front', 'scale', this.value)">
+            <label>Позиція X (Вліво/Вправо):</label>
+            <input type="range" min="5" max="45" value="25" oninput="transform('print-front', 'left', this.value)">
+            <label>Позиція Y (Вгору/Вниз):</label>
+            <input type="range" min="10" max="80" value="45" oninput="transform('print-front', 'top', this.value)">
+        </div>
 
-        <h3>3. Розмір</h3>
+        <div class="controls-group">
+            <label>🖼 ПРИНТ СПИНА</label>
+            <input type="file" class="upload-btn" accept="image/*" onchange="loadImg(event, 'print-back', 'cont-back')">
+            <label>Розмір:</label>
+            <input type="range" min="10" max="150" value="50" oninput="transform('print-back', 'scale', this.value)">
+            <label>Позиція X:</label>
+            <input type="range" min="55" max="95" value="75" oninput="transform('print-back', 'left', this.value)">
+            <label>Позиція Y:</label>
+            <input type="range" min="10" max="80" value="45" oninput="transform('print-back', 'top', this.value)">
+        </div>
+
         <select id="size">
-            <option value="S">S</option><option value="M">M</option><option value="L">L</option><option value="XL">XL</option>
+            <option value="S">Розмір: S</option><option value="M">M</option><option value="L">L</option><option value="XL">XL</option>
         </select>
 
-        <button id="save_btn">ЗБЕРЕГТИ ЗАМОВЛЕННЯ</button>
+        <button id="save_btn">В КОШИК 🛒</button>
     </div>
 
     <script>
         let tg = window.Telegram.WebApp;
         tg.expand();
 
+        // Об'єкт для збереження налаштувань трансформації
+        let transforms = {
+            'print-front': { scale: 50, left: 25, top: 45 },
+            'print-back': { scale: 50, left: 75, top: 45 }
+        };
+
         function updateBase() {
-            document.getElementById('base-apparel').src = document.getElementById('item-type').value;
+            let val = document.getElementById('item-type').value;
+            document.getElementById('base-apparel').src = "https://raw.githubusercontent.com/EngineApparel/engine.apparel.web/main/" + val;
         }
 
         function updateColor() {
-            document.getElementById('stage').style.backgroundColor = document.getElementById('color').value;
+            document.getElementById('color-layer').style.backgroundColor = document.getElementById('color').value;
         }
 
-        function loadImg(event, targetId) {
+        function loadImg(event, imgId, contId) {
             let reader = new FileReader();
             reader.onload = function(){
-                let img = document.getElementById(targetId);
+                let img = document.getElementById(imgId);
                 img.src = reader.result;
-                img.style.display = 'block';
+                document.getElementById(contId).style.display = 'block';
+                applyTransform(imgId);
             };
             reader.readAsDataURL(event.target.files[0]);
+        }
+
+        function transform(id, type, val) {
+            transforms[id][type] = val;
+            applyTransform(id);
+        }
+
+        function applyTransform(id) {
+            let img = document.getElementById(id);
+            let t = transforms[id];
+            img.style.width = t.scale + "px";
+            img.style.left = t.left + "%";
+            img.style.top = t.top + "%";
         }
 
         document.getElementById('save_btn').onclick = function() {
@@ -113,13 +186,9 @@
             tg.sendData(JSON.stringify(data));
             tg.close();
         };
+
+        // Ініціалізація стартових значень
+        updateColor();
     </script>
 </body>
 </html>
-
-
-
-
-
-
-
