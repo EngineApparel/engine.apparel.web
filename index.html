@@ -5,14 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #050505; color: #fff; margin: 0; padding: 15px; overflow: hidden; touch-action: none; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #000; color: #fff; margin: 0; padding: 15px; overflow: hidden; touch-action: none; }
         .app-container { display: flex; flex-direction: column; height: 95vh; gap: 15px; }
         
         /* СЦЕНА (МОКАП) */
         .stage { 
             position: relative; width: 100%; aspect-ratio: 1/1; 
             background: #111; border-radius: 20px; overflow: hidden; border: 1px solid #333;
-            box-shadow: inset 0 0 30px #000;
         }
 
         /* КОЛІР ОДЯГУ (з маскою) */
@@ -32,7 +31,7 @@
         .print-obj {
             position: absolute; z-index: 5; cursor: move; display: none;
             touch-action: none; user-select: none;
-            top: 100px; left: 50px; /* Базова позиція */
+            top: 50%; left: 50%; transform: translate(-50%, -50%);
         }
         .print-obj.active { outline: 2px dashed #fff; outline-offset: 4px; }
 
@@ -56,7 +55,7 @@
         <img id="base-img" class="shadow-layer" src="https://raw.githubusercontent.com/EngineApparel/engine.apparel.web/main/hoodie_full.png">
         
         <img id="front-img" class="print-obj" src="" style="width: 80px;">
-        <img id="back-img" class="print-obj" src="" style="width: 80px; left: 200px;">
+        <img id="back-img" class="print-obj" src="" style="width: 80px;">
     </div>
 
     <div class="controls">
@@ -68,7 +67,7 @@
             </select>
             <select id="color-sel" onchange="updateColor()">
                 <option value="#ffffff">Білий</option>
-                <option value="#111111">Чорний</option>
+                <option value="#000000">Чорний</option>
                 <option value="#555555">Сірий</option>
                 <option value="#4b5320">Хакі</option>
                 <option value="#7b1113">Бордо</option>
@@ -100,16 +99,14 @@
     tg.expand();
     let activeId = null;
 
-    // Універсальна функція перетягування (PC + Mobile)
+    // ПЕРЕТЯГУВАННЯ
     function initDrag(el) {
-        let isDragging = false;
-        let startX, startY;
+        let isDragging = false, startX, startY, x=0, y=0;
 
         const start = (e) => {
             if (e.target !== el) return;
             activeId = el.id;
             
-            // Підсвітка активного принта
             document.querySelectorAll('.print-obj').forEach(p => p.classList.remove('active'));
             el.classList.add('active');
             document.getElementById('zoom-ctrl').style.display = 'block';
@@ -117,14 +114,15 @@
             isDragging = true;
             let ev = e.type.includes('touch') ? e.touches[0] : e;
             
-            // Простий і надійний розрахунок позиції
             startX = ev.clientX - el.offsetLeft;
             startY = ev.clientY - el.offsetTop;
+            
+            el.style.transform = 'none';
         };
 
         const move = (e) => {
             if (!isDragging) return;
-            e.preventDefault(); // Зупиняємо скрол на телефоні
+            e.preventDefault(); 
             let ev = e.type.includes('touch') ? e.touches[0] : e;
             el.style.left = (ev.clientX - startX) + 'px';
             el.style.top = (ev.clientY - startY) + 'px';
@@ -132,12 +130,10 @@
 
         const end = () => { isDragging = false; };
 
-        // ПК
         el.addEventListener('mousedown', start);
         window.addEventListener('mousemove', move);
         window.addEventListener('mouseup', end);
 
-        // Мобайл
         el.addEventListener('touchstart', start, { passive: false });
         window.addEventListener('touchmove', move, { passive: false });
         window.addEventListener('touchend', end);
@@ -162,6 +158,7 @@
     }
 
     function upload(e, id) {
+        if(!e.target.files[0]) return;
         let reader = new FileReader();
         reader.onload = () => {
             let el = document.getElementById(id);
@@ -173,14 +170,12 @@
             el.classList.add('active');
             document.getElementById('zoom-ctrl').style.display = 'block';
         };
-        if(e.target.files[0]) {
-            reader.readAsDataURL(e.target.files[0]);
-        }
+        reader.readAsDataURL(e.target.files[0]);
     }
 
+    // ГОЛОВНА ФУНКЦІЯ ВІДПРАВКИ (ІЗ ЗАХИСТОМ)
     function sendToBot() {
         try {
-            // Збираємо всі дані
             let data = {
                 type: document.getElementById('type-sel').selectedOptions[0].text,
                 color: document.getElementById('color-sel').selectedOptions[0].text,
@@ -189,13 +184,22 @@
                 back: document.getElementById('back-img').src.length > 100
             };
             
-            // Якщо все зібралося без помилок - відправляємо
+            // Нагадуємо про скріншот
+            alert("📸 ЗРОБІТЬ СКРІНШОТ ЕКРАНА ПРЯМО ЗАРАЗ!\n\nПісля натискання 'ОК' вікно закриється, і бот попросить вас надіслати цей скріншот та файли принтів.");
+            
+            // Відправка
             tg.sendData(JSON.stringify(data));
             tg.close();
             
         } catch (error) {
-            // Якщо код зламався, Telegram покаже це повідомлення, а не просто закриє вікно
-            alert("Помилка конструктора: Не вдалося зібрати дані. Деталі: " + error.message);
+            // Якщо щось піде не так - ви побачите це червоне вікно!
+            document.body.innerHTML = `
+                <div style="background: red; padding: 20px; text-align: center; height: 100vh;">
+                    <h2>КРИТИЧНА ПОМИЛКА</h2>
+                    <p>${error.message}</p>
+                    <button onclick="location.reload()" style="padding:10px; background:#fff; color:#000; border:none; border-radius:5px;">Оновити</button>
+                </div>
+            `;
         }
     }
 </script>
