@@ -1,242 +1,158 @@
-import asyncio
-import json
-import os
-from aiogram import Bot, Dispatcher, F
-from aiogram.filters import CommandStart, Command
-from aiogram.types import Message, CallbackQuery, ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardRemove
-from aiogram.types.web_app_info import WebAppInfo
-from aiogram.fsm.state import State, StatesGroup
-from aiogram.fsm.context import FSMContext
-
-# ==========================================
-BOT_TOKEN = "8404575728:AAG1u4bCLFzp3gAjjMujphWzqI5PdHF1lBc"
-ADMIN_ID = 7850928101  # Твій ID
-MANAGER_URL = "https://t.me/olch0045"
-WEB_APP_URL = "https://engineapparel.github.io/engine.apparel.web/" 
-
-bot = Bot(token=BOT_TOKEN)
-dp = Dispatcher()
-
-class CustomOrder(StatesGroup):
-    waiting_screenshot = State()
-    waiting_front = State()
-    waiting_back = State()
-
-class CheckoutForm(StatesGroup):
-    payment_proof = State()
-
-def get_main_keyboard():
-    return ReplyKeyboardMarkup(keyboard=[
-        [KeyboardButton(text="🎨 Конструктор", web_app=WebAppInfo(url=WEB_APP_URL)), KeyboardButton(text="🛍 Каталог")],
-        [KeyboardButton(text="🛒 Кошик"), KeyboardButton(text="📞 Контакти")]
-    ], resize_keyboard=True)
-
-# ГЕНЕРАТОР НОМЕРА ЗАМОВЛЕННЯ
-def get_next_order_id():
-    file_path = "order_counter.txt"
-    try:
-        with open(file_path, "r") as f:
-            oid = int(f.read().strip())
-    except:
-        oid = 1000
-    oid += 1
-    with open(file_path, "w") as f:
-        f.write(str(oid))
-    return oid
-
-@dp.message(CommandStart())
-async def cmd_start(message: Message, state: FSMContext):
-    await state.clear()
-    await state.update_data(cart=[])
-    await message.answer("Вітаємо в <b>ENGINE APPAREL</b>! 🏁\nСтворюй свій стиль.", reply_markup=get_main_keyboard(), parse_mode="HTML")
-
-@dp.message(F.text == "🛍 Каталог")
-async def show_catalog(message: Message):
-    await message.answer("🛍 <b>Каталог ENGINE APPAREL</b>\n\nНаразі наш каталог у процесі наповнення крутими речами. \nА поки що — створи свій унікальний мерч у нашому <b>🎨 Конструкторі</b>!", parse_mode="HTML")
-
-# ==========================================
-# 🛠 ОБРОБКА ДАНИХ З КОНСТРУКТОРА
-# ==========================================
-@dp.message(F.web_app_data)
-async def web_app_receive(message: Message, state: FSMContext):
-    try:
-        data = json.loads(message.web_app_data.data)
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #000; color: #fff; margin: 0; padding: 15px; overflow: hidden; touch-action: none; }
+        .app-container { display: flex; flex-direction: column; height: 95vh; gap: 15px; }
         
-        await state.update_data(
-            temp_item={
-                "type": data.get('type', 'Невідомо'),
-                "color": data.get('color', 'Невідомо'),
-                "size": data.get('size', 'Невідомо'),
-                "files": []
-            },
-            needs_front=data.get('front', False),
-            needs_back=data.get('back', False)
-        )
+        /* ЕКРАН ПОПЕРЕДЖЕННЯ */
+        #warning-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.95); z-index: 9999;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            padding: 20px; box-sizing: border-box; text-align: center;
+        }
+        .warning-box { background: #1a1a1a; padding: 20px; border-radius: 15px; border: 2px solid #555; }
+        .warning-btn { background: #fff; color: #000; font-weight: bold; padding: 12px 20px; border: none; border-radius: 10px; margin-top: 15px; width: 100%; font-size: 16px; cursor: pointer; }
 
-        if data.get('front') or data.get('back'):
-            await message.answer("✅ <b>Дані прийнято!</b>\n\n<b>КРОК 1/3:</b> Надішліть <b>СКРІНШОТ</b> вашого дизайну з конструктора (можна як звичайне фото):", parse_mode="HTML", reply_markup=ReplyKeyboardRemove())
-            await state.set_state(CustomOrder.waiting_screenshot)
-        else:
-            await message.answer("⚠️ Ви не додали принти. Кошик порожній.", reply_markup=get_main_keyboard())
-    except Exception as e:
-        await message.answer(f"❌ ПОМИЛКА: {str(e)}")
+        /* СЦЕНА (МОКАП) */
+        .stage { position: relative; width: 100%; aspect-ratio: 1/1; background: #111; border-radius: 20px; overflow: hidden; border: 1px solid #333; }
+        .color-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #fff; z-index: 1; transition: 0.3s; -webkit-mask-size: contain; -webkit-mask-repeat: no-repeat; -webkit-mask-position: center; }
+        .shadow-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; mix-blend-mode: multiply; z-index: 2; pointer-events: none; }
+        .print-obj { position: absolute; z-index: 5; cursor: move; display: none; touch-action: none; user-select: none; top: 50%; left: 50%; transform: translate(-50%, -50%); }
+        .print-obj.active { outline: 2px dashed #fff; outline-offset: 4px; }
 
-# ==========================================
-# 📥 ЛОГІКА ПРИЙОМУ ФАЙЛІВ (ІЗ ЗАБОРОНОЮ ФОТО)
-# ==========================================
-@dp.message(CustomOrder.waiting_screenshot, F.photo | F.document)
-async def get_screenshot(message: Message, state: FSMContext):
-    screen_id = message.photo[-1].file_id if message.photo else message.document.file_id
-    await state.update_data(screenshot_id=screen_id)
-    
-    u_data = await state.get_data()
-    
-    warn_text = "⚠️ <b>ВАЖЛИВО:</b> Наступний файл надішліть <b>ВИКЛЮЧНО ЯК ФАЙЛ (Документ)</b>, без стиснення! Звичайні фотографії бот не прийме."
-    
-    if u_data.get('needs_front'):
-        await message.answer(f"{warn_text}\n\n<b>КРОК 2/3:</b> Надішліть макет <b>ПЕРЕДУ</b>:", parse_mode="HTML")
-        await state.set_state(CustomOrder.waiting_front)
-    elif u_data.get('needs_back'):
-        await message.answer(f"{warn_text}\n\n<b>КРОК 2/3:</b> Надішліть макет <b>СПИНИ</b>:", parse_mode="HTML")
-        await state.set_state(CustomOrder.waiting_back)
+        /* ІНТЕРФЕЙС */
+        .controls { display: flex; flex-direction: column; gap: 10px; }
+        .row { display: flex; gap: 10px; }
+        select, button { background: #1a1a1a; color: #fff; border: 1px solid #333; padding: 12px; border-radius: 12px; font-size: 14px; width: 100%; font-weight: 500; }
+        .btn-buy { background: #fff; color: #000; font-weight: bold; border: none; font-size: 16px; margin-top: 5px; }
+        input[type=range] { width: 100%; accent-color: #fff; margin: 10px 0; }
+        label { font-size: 11px; color: #aaa; text-transform: uppercase; font-weight: bold; }
+    </style>
+</head>
+<body>
 
-# Захист від відправки фото замість документа
-@dp.message(CustomOrder.waiting_front)
-async def get_front(message: Message, state: FSMContext):
-    if not message.document:
-        await message.answer("❌ <b>Помилка!</b> Ви надіслали картинку як звичайне фото.\n\nНатисніть на 📎 (Скріпку) ➔ виберіть <b>Файл</b> ➔ і надішліть макет без стиснення!", parse_mode="HTML")
-        return
+<div id="warning-overlay">
+    <div class="warning-box">
+        <h2 style="margin-top:0; color: #ff4444;">⚠️ УВАГА!</h2>
+        <p style="font-size: 15px; line-height: 1.5; text-align: left;">
+            1. Створіть свій дизайн.<br><br>
+            2. <b>ОБОВ'ЯЗКОВО ЗРОБІТЬ СКРІНШОТ</b> екрана перед тим, як натиснути кнопку "Додати в кошик".<br><br>
+            3. Бот попросить вас надіслати цей скріншот, а також самі файли принтів як <b>ДОКУМЕНТИ</b>.
+        </p>
+        <button class="warning-btn" onclick="document.getElementById('warning-overlay').style.display='none'">Я зрозумів, почати 🏁</button>
+    </div>
+</div>
 
-    u_data = await state.get_data()
-    u_data['temp_item']['files'].append({"pos": "ПЕРЕД", "id": message.document.file_id})
-    await state.update_data(temp_item=u_data['temp_item'])
-    
-    if u_data.get('needs_back'):
-        await message.answer("✅ Чудово! \n\n<b>КРОК 3/3:</b> Тепер надішліть макет <b>СПИНИ</b> (також <b>ЯК ФАЙЛ</b>):", parse_mode="HTML")
-        await state.set_state(CustomOrder.waiting_back)
-    else:
-        await finish_custom_order(message, state)
-
-@dp.message(CustomOrder.waiting_back)
-async def get_back(message: Message, state: FSMContext):
-    if not message.document:
-        await message.answer("❌ <b>Помилка!</b> Надішліть макет спини як <b>ФАЙЛ (Документ)</b>, а не як фото!", parse_mode="HTML")
-        return
-
-    u_data = await state.get_data()
-    u_data['temp_item']['files'].append({"pos": "СПИНА", "id": message.document.file_id})
-    await state.update_data(temp_item=u_data['temp_item'])
-    await finish_custom_order(message, state)
-
-# ==========================================
-# 💾 ЗАВЕРШЕННЯ ДИЗАЙНУ
-# ==========================================
-async def finish_custom_order(message: Message, state: FSMContext):
-    data = await state.get_data()
-    temp = data['temp_item']
-    screen_id = data.get('screenshot_id')
-    user_tag = f"@{message.from_user.username}" if message.from_user.username else f"ID: {message.from_user.id}"
-    
-    try:
-        admin_info = f"🎨 <b>МАКЕТ У КОШИКУ!</b>\n👤 Від: {user_tag}\n👕 {temp['type']} ({temp['color']}, {temp['size']})"
-        await bot.send_photo(ADMIN_ID, photo=screen_id, caption=admin_info, parse_mode="HTML")
+<div class="app-container">
+    <div class="stage" id="stage">
+        <div id="color-layer" class="color-layer" style="-webkit-mask-image: url('https://raw.githubusercontent.com/EngineApparel/engine.apparel.web/main/hoodie_full.png');"></div>
+        <img id="base-img" class="shadow-layer" src="https://raw.githubusercontent.com/EngineApparel/engine.apparel.web/main/hoodie_full.png">
         
-        for f in temp['files']:
-            await bot.send_document(ADMIN_ID, document=f["id"], caption=f"🖼 Оригінал ({f['pos']}) від {user_tag}")
-    except Exception as e:
-        print(f"Помилка адміна: {e}")
+        <img id="front-img" class="print-obj" src="" style="width: 80px;">
+        <img id="back-img" class="print-obj" src="" style="width: 80px;">
+    </div>
 
-    cart = data.get("cart", [])
-    cart.append({"name": f"{temp['type']} ({temp['color']}, {temp['size']})", "price": 1600, "files": temp['files']})
-    await state.update_data(cart=cart)
-    
-    await message.answer("✅ <b>УСПІШНО!</b>\nВсі макети збережено. Дизайн додано до 🛒 Кошика. Перейдіть туди для оплати.", reply_markup=get_main_keyboard(), parse_mode="HTML")
-    await state.set_state(None)
+    <div class="controls">
+        <div class="row">
+            <select id="type-sel" onchange="updateType()">
+                <option value="hoodie_full.png">Худі</option>
+                <option value="zip_full.png">Зіп-худі</option>
+                <option value="tshirt_full.png">Футболка</option>
+            </select>
+            <select id="color-sel" onchange="updateColor()">
+                <option value="#ffffff">Білий</option>
+                <option value="#000000">Чорний</option>
+                <option value="#555555">Сірий</option>
+                <option value="#4b5320">Хакі</option>
+                <option value="#7b1113">Бордо</option>
+            </select>
+        </div>
 
-# ==========================================
-# 🛒 КОШИК ТА ОПЛАТА
-# ==========================================
-@dp.message(F.text == "🛒 Кошик")
-async def show_cart(message: Message, state: FSMContext):
-    data = await state.get_data()
-    cart = data.get("cart", [])
-    if not cart:
-        await message.answer("Твій кошик порожній 🛒")
-        return
-    total = sum(i['price'] for i in cart)
-    res = "🛒 <b>Твій кошик:</b>\n\n"
-    for idx, item in enumerate(cart, 1): res += f"{idx}. {item['name']} — {item['price']} грн\n"
-    res += f"\n💰 <b>Разом до сплати: {total} грн</b>"
-    kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="💳 Сплатити та Оформити", callback_data="checkout")]])
-    await message.answer(res, reply_markup=kb, parse_mode="HTML")
+        <div id="zoom-ctrl" style="display:none; background: #111; padding: 10px; border-radius: 12px; border: 1px solid #333;">
+            <label>Масштаб принта:</label>
+            <input type="range" min="30" max="250" value="80" oninput="resizePrint(this.value)">
+        </div>
 
-@dp.callback_query(F.data == "checkout")
-async def checkout(callback: CallbackQuery, state: FSMContext):
-    await callback.message.answer("🧾 Для підтвердження замовлення надішліть скріншот (або фото) чека про оплату:")
-    await state.set_state(CheckoutForm.payment_proof)
-    await callback.answer()
+        <div class="row">
+            <button onclick="document.getElementById('f-up').click()">+ ПЕРЕД</button>
+            <button onclick="document.getElementById('b-up').click()">+ СПИНА</button>
+            <input type="file" id="f-up" hidden accept="image/*" onchange="upload(event, 'front-img')">
+            <input type="file" id="b-up" hidden accept="image/*" onchange="upload(event, 'back-img')">
+        </div>
 
-@dp.message(CheckoutForm.payment_proof, F.photo | F.document)
-async def final_step(message: Message, state: FSMContext):
-    user_id = message.from_user.id
-    user_tag = f"@{message.from_user.username}" if message.from_user.username else f"ID: {user_id}"
-    order_id = get_next_order_id()
-    
-    proof_id = message.photo[-1].file_id if message.photo else message.document.file_id
-    
-    # Кнопки для Адміністратора
-    admin_kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="✅ Підтвердити оплату", callback_data=f"confirm_{user_id}_{order_id}")],
-        [InlineKeyboardButton(text="❌ Відхилити оплату", callback_data=f"reject_{user_id}_{order_id}")]
-    ])
-    
-    try:
-        await bot.send_photo(
-            ADMIN_ID, 
-            photo=proof_id, 
-            caption=f"🚨 <b>НОВЕ ЗАМОВЛЕННЯ №{order_id}</b>\n👤 Клієнт: {user_tag}\n💰 Чек про оплату прикріплено.",
-            reply_markup=admin_kb,
-            parse_mode="HTML"
-        )
-    except Exception as e:
-        print(f"Помилка відправки чека: {e}")
+        <select id="size-sel">
+            <option>Розмір: S</option><option selected>Розмір: M</option><option>Розмір: L</option><option>Розмір: XL</option>
+        </select>
 
-    await message.answer(f"✅ <b>Замовлення №{order_id} прийнято в обробку!</b>\nОчікуйте на підтвердження від менеджера.", reply_markup=get_main_keyboard(), parse_mode="HTML")
-    await state.update_data(cart=[]) 
-    await state.set_state(None)
+        <button class="btn-buy" onclick="sendToBot()">ДОДАТИ В КОШИК 🛒</button>
+    </div>
+</div>
 
-# ==========================================
-# 👑 ПАНЕЛЬ АДМІНІСТРАТОРА (ОБРОБКА КНОПОК)
-# ==========================================
-@dp.callback_query(F.data.startswith("confirm_"))
-async def admin_confirm(call: CallbackQuery):
-    _, user_id, order_id = call.data.split("_")
-    
-    # Відправляємо повідомлення клієнту
-    await bot.send_message(chat_id=int(user_id), text=f"✅ <b>Ваше замовлення №{order_id} успішно ПІДТВЕРДЖЕНО!</b>\nОплату отримано, макети передані у виробництво. Дякуємо, що обрали ENGINE APPAREL! 🏁", parse_mode="HTML")
-    
-    # Змінюємо повідомлення адміна, щоб кнопка зникла
-    await call.message.edit_caption(caption=call.message.caption + "\n\n✅ <b>СТАТУС: ПІДТВЕРДЖЕНО</b>", reply_markup=None, parse_mode="HTML")
-    await call.answer("Замовлення підтверджено!")
+<script>
+    let tg = window.Telegram.WebApp; tg.expand();
+    let activeId = null;
 
-@dp.callback_query(F.data.startswith("reject_"))
-async def admin_reject(call: CallbackQuery):
-    _, user_id, order_id = call.data.split("_")
-    
-    # Відправляємо повідомлення клієнту
-    await bot.send_message(chat_id=int(user_id), text=f"❌ <b>Ваше замовлення №{order_id} ВІДХИЛЕНО.</b>\nМожливо, виникла проблема з оплатою або макетом. Будь ласка, зв'яжіться з нашим менеджером: {MANAGER_URL}", parse_mode="HTML")
-    
-    # Змінюємо повідомлення адміна
-    await call.message.edit_caption(caption=call.message.caption + "\n\n❌ <b>СТАТУС: ВІДХИЛЕНО</b>", reply_markup=None, parse_mode="HTML")
-    await call.answer("Замовлення відхилено!")
+    function initDrag(el) {
+        let isDragging = false, startX, startY;
+        const start = (e) => {
+            if (e.target !== el) return;
+            activeId = el.id;
+            document.querySelectorAll('.print-obj').forEach(p => p.classList.remove('active'));
+            el.classList.add('active');
+            document.getElementById('zoom-ctrl').style.display = 'block';
+            isDragging = true;
+            let ev = e.type.includes('touch') ? e.touches[0] : e;
+            startX = ev.clientX - el.offsetLeft; startY = ev.clientY - el.offsetTop;
+            el.style.transform = 'none';
+        };
+        const move = (e) => {
+            if (!isDragging) return;
+            e.preventDefault(); 
+            let ev = e.type.includes('touch') ? e.touches[0] : e;
+            el.style.left = (ev.clientX - startX) + 'px'; el.style.top = (ev.clientY - startY) + 'px';
+        };
+        const end = () => { isDragging = false; };
 
-@dp.message(F.text == "📞 Контакти")
-async def contacts(message: Message):
-    await message.answer(f"🏁 <b>ENGINE APPAREL</b>\nМенеджер: {MANAGER_URL}", parse_mode="HTML")
+        el.addEventListener('mousedown', start); window.addEventListener('mousemove', move); window.addEventListener('mouseup', end);
+        el.addEventListener('touchstart', start, { passive: false }); window.addEventListener('touchmove', move, { passive: false }); window.addEventListener('touchend', end);
+    }
+    initDrag(document.getElementById('front-img')); initDrag(document.getElementById('back-img'));
+    function resizePrint(v) { if(activeId) document.getElementById(activeId).style.width = v + 'px'; }
 
-async def main():
-    print("Бот ENGINE APPAREL (V3 PRO) успішно запущено!")
-    await dp.start_polling(bot)
+    function updateType() {
+        let file = document.getElementById('type-sel').value; let url = "https://raw.githubusercontent.com/EngineApparel/engine.apparel.web/main/" + file;
+        document.getElementById('color-layer').style.webkitMaskImage = `url('${url}')`; document.getElementById('base-img').src = url;
+    }
+    function updateColor() { document.getElementById('color-layer').style.backgroundColor = document.getElementById('color-sel').value; }
 
-if __name__ == "__main__":
-    asyncio.run(main())
+    function upload(e, id) {
+        if(!e.target.files[0]) return;
+        let reader = new FileReader();
+        reader.onload = () => {
+            let el = document.getElementById(id); el.src = reader.result; el.style.display = 'block'; activeId = id;
+            document.querySelectorAll('.print-obj').forEach(p => p.classList.remove('active'));
+            el.classList.add('active'); document.getElementById('zoom-ctrl').style.display = 'block';
+        };
+        reader.readAsDataURL(e.target.files[0]);
+    }
+
+    function sendToBot() {
+        try {
+            let data = {
+                type: document.getElementById('type-sel').selectedOptions[0].text,
+                color: document.getElementById('color-sel').selectedOptions[0].text,
+                size: document.getElementById('size-sel').value,
+                front: document.getElementById('front-img').src.length > 100,
+                back: document.getElementById('back-img').src.length > 100
+            };
+            tg.sendData(JSON.stringify(data)); tg.close();
+        } catch (error) { alert("Помилка: " + error.message); }
+    }
+</script>
+</body>
+</html>
