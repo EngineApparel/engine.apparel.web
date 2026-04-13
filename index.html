@@ -5,10 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #000; color: #fff; margin: 0; padding: 15px; overflow: hidden; touch-action: none; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #000; color: #fff; margin: 0; padding: 15px; overflow: hidden; touch-action: none; }
         .app-container { display: flex; flex-direction: column; height: 95vh; gap: 15px; }
         
-        /* ЕКРАН ПОПЕРЕДЖЕННЯ */
+        /* Екран-підказка */
         #warning-overlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0, 0, 0, 0.95); z-index: 9999;
@@ -18,18 +18,20 @@
         .warning-box { background: #1a1a1a; padding: 20px; border-radius: 15px; border: 2px solid #555; }
         .warning-btn { background: #fff; color: #000; font-weight: bold; padding: 12px 20px; border: none; border-radius: 10px; margin-top: 15px; width: 100%; font-size: 16px; cursor: pointer; }
 
-        /* СЦЕНА (МОКАП) */
+        /* Мокап */
         .stage { position: relative; width: 100%; aspect-ratio: 1/1; background: #111; border-radius: 20px; overflow: hidden; border: 1px solid #333; }
         .color-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #fff; z-index: 1; transition: 0.3s; -webkit-mask-size: contain; -webkit-mask-repeat: no-repeat; -webkit-mask-position: center; }
         .shadow-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; mix-blend-mode: multiply; z-index: 2; pointer-events: none; }
+        
+        /* Принти */
         .print-obj { position: absolute; z-index: 5; cursor: move; display: none; touch-action: none; user-select: none; top: 50%; left: 50%; transform: translate(-50%, -50%); }
         .print-obj.active { outline: 2px dashed #fff; outline-offset: 4px; }
 
-        /* ІНТЕРФЕЙС */
+        /* Кнопки */
         .controls { display: flex; flex-direction: column; gap: 10px; }
         .row { display: flex; gap: 10px; }
         select, button { background: #1a1a1a; color: #fff; border: 1px solid #333; padding: 12px; border-radius: 12px; font-size: 14px; width: 100%; font-weight: 500; }
-        .btn-buy { background: #fff; color: #000; font-weight: bold; border: none; font-size: 16px; margin-top: 5px; }
+        .btn-buy { background: #fff; color: #000; font-weight: bold; border: none; font-size: 16px; margin-top: 5px; cursor: pointer; }
         input[type=range] { width: 100%; accent-color: #fff; margin: 10px 0; }
         label { font-size: 11px; color: #aaa; text-transform: uppercase; font-weight: bold; }
     </style>
@@ -42,9 +44,9 @@
         <p style="font-size: 15px; line-height: 1.5; text-align: left;">
             1. Створіть свій дизайн.<br><br>
             2. <b>ОБОВ'ЯЗКОВО ЗРОБІТЬ СКРІНШОТ</b> екрана перед тим, як натиснути кнопку "Додати в кошик".<br><br>
-            3. Бот попросить вас надіслати цей скріншот, а також самі файли принтів як <b>ДОКУМЕНТИ</b>.
+            3. Бот попросить вас надіслати цей скріншот, а потім самі файли принтів.
         </p>
-        <button class="warning-btn" onclick="document.getElementById('warning-overlay').style.display='none'">Я зрозумів, почати 🏁</button>
+        <button class="warning-btn" onclick="document.getElementById('warning-overlay').style.display='none'">Я зрозумів 🏁</button>
     </div>
 </div>
 
@@ -117,16 +119,20 @@
             el.style.left = (ev.clientX - startX) + 'px'; el.style.top = (ev.clientY - startY) + 'px';
         };
         const end = () => { isDragging = false; };
-
         el.addEventListener('mousedown', start); window.addEventListener('mousemove', move); window.addEventListener('mouseup', end);
         el.addEventListener('touchstart', start, { passive: false }); window.addEventListener('touchmove', move, { passive: false }); window.addEventListener('touchend', end);
     }
-    initDrag(document.getElementById('front-img')); initDrag(document.getElementById('back-img'));
+    
+    initDrag(document.getElementById('front-img')); 
+    initDrag(document.getElementById('back-img'));
+    
     function resizePrint(v) { if(activeId) document.getElementById(activeId).style.width = v + 'px'; }
 
     function updateType() {
-        let file = document.getElementById('type-sel').value; let url = "https://raw.githubusercontent.com/EngineApparel/engine.apparel.web/main/" + file;
-        document.getElementById('color-layer').style.webkitMaskImage = `url('${url}')`; document.getElementById('base-img').src = url;
+        let file = document.getElementById('type-sel').value; 
+        let url = "https://raw.githubusercontent.com/EngineApparel/engine.apparel.web/main/" + file;
+        document.getElementById('color-layer').style.webkitMaskImage = `url('${url}')`; 
+        document.getElementById('base-img').src = url;
     }
     function updateColor() { document.getElementById('color-layer').style.backgroundColor = document.getElementById('color-sel').value; }
 
@@ -134,23 +140,38 @@
         if(!e.target.files[0]) return;
         let reader = new FileReader();
         reader.onload = () => {
-            let el = document.getElementById(id); el.src = reader.result; el.style.display = 'block'; activeId = id;
+            let el = document.getElementById(id); 
+            el.src = reader.result; 
+            el.style.display = 'block'; 
+            activeId = id;
             document.querySelectorAll('.print-obj').forEach(p => p.classList.remove('active'));
-            el.classList.add('active'); document.getElementById('zoom-ctrl').style.display = 'block';
+            el.classList.add('active'); 
+            document.getElementById('zoom-ctrl').style.display = 'block';
         };
         reader.readAsDataURL(e.target.files[0]);
     }
 
     function sendToBot() {
         try {
+            // 100% надійна перевірка наявності картинок
+            let imgFront = document.getElementById('front-img').src;
+            let imgBack = document.getElementById('back-img').src;
+            let hasFront = imgFront.startsWith('data:image');
+            let hasBack = imgBack.startsWith('data:image');
+
             let data = {
                 type: document.getElementById('type-sel').selectedOptions[0].text,
                 color: document.getElementById('color-sel').selectedOptions[0].text,
                 size: document.getElementById('size-sel').value,
-                front: document.getElementById('front-img').src.length > 100,
-                back: document.getElementById('back-img').src.length > 100
+                front: hasFront,
+                back: hasBack
             };
-            tg.sendData(JSON.stringify(data)); tg.close();
+            
+            // Фінальне нагадування клієнту
+            alert("📸 ЯКЩО ВИ ЩЕ НЕ ЗРОБИЛИ СКРІНШОТ - ЗРОБІТЬ ЙОГО ЗАРАЗ!\n\nПісля натискання 'ОК' бот попросить вас надіслати скріншот і файли.");
+            
+            tg.sendData(JSON.stringify(data)); 
+            tg.close();
         } catch (error) { alert("Помилка: " + error.message); }
     }
 </script>
